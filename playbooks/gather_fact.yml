@@ -1,4 +1,5 @@
--- name: "Demonstrate connecting to switches"
+---
+name: "Demonstrate connecting to switches"
   hosts: switches
   gather_facts: no
 
