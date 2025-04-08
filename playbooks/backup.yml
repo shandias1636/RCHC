@@ -1,31 +1,20 @@
 ---
-- name: Backup Cisco Switch Configs
+- name: Backup Cisco IOS Configuration with Timestamp
   hosts: network
   gather_facts: no
+  connection: ansible.netcommon.network_cli
+
+  vars:
+    timestamp: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
 
   tasks:
+    - name: Backup running-config from switch
+      cisco.ios.ios_config:
+        backup: yes
+      register: backup_result
 
-    - name: Set current datetime
-      ansible.builtin.set_fact:
-        current_datetime: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
-
-    - name: Get switch hostname
-      cisco.ios.ios_facts:
-
-    - name: Run 'show running-config'
-      cisco.ios.ios_command:
-        commands: show running-config
-      register: config_output
-
-    - name: Ensure backup_configs directory exists on localhost
-      ansible.builtin.file:
-        path: "backup_configs"
-        state: directory
-        mode: '0755'
-      delegate_to: localhost
-
-    - name: Save config to local file
-      ansible.builtin.copy:
-        content: "{{ config_output.stdout[0] }}"
-        dest: "backup_configs {{ ansible_net_hostname }}.txt"
+    - name: Save backup to local file with timestamp
+      copy:
+        content: "{{ backup_result.backup_config }}"
+        dest: "backups/{{ inventory_hostname }}_{{ timestamp }}.cfg"
       delegate_to: localhost
