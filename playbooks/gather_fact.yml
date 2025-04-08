@@ -1,95 +1,50 @@
 ---
-name: "Demonstrate connecting to switches"
-  hosts: switches
+- name: Gather facts from Cisco switches and export to CSV
+  hosts: cisco_switches
   gather_facts: no
+  connection: network_cli
+  collections:
+    - cisco.ios
+
+  vars:
+    output_file: "cisco_facts_output.csv"
 
   tasks:
-    ###
-    # Collect data
-    #
-    - name: Gather facts (eos)
-      arista.eos.eos_facts:
-      when: ansible_network_os == 'arista.eos.eos'
+    - name: Gather Cisco IOS facts
+      ios_facts:
 
-    - name: Gather facts (ios)
-      cisco.ios.ios_facts:
-      when: ansible_network_os == 'cisco.ios.ios'
+    - name: Extract relevant data
+      set_fact:
+        switch_data: >-
+          {{
+            {
+              'hostname': ansible_facts.net_hostname | default(inventory_hostname),
+              'serial': ansible_facts.net_serialnum | default('N/A'),
+              'version': ansible_facts.net_version | default('N/A'),
+              'interfaces': ansible_facts.net_interfaces | dict2items |
+                            map(attribute='value.ipv4') |
+                            select('defined') |
+                            map(attribute='address') |
+                            list | join(', ')
+            }
+          }}
 
-    - name: Gather facts (vyos)
-      vyos.vyos.vyos_facts:
-      when: ansible_network_os == 'vyos.vyos.vyos'
+    - name: Add to CSV file
+      delegate_to: localhost
+      run_once: true
+      vars:
+        csv_header: "Hostname,Serial Number,IOS Version,Interfaces"
+      block:
+        - name: Initialize CSV file with header
+          copy:
+            dest: "{{ output_file }}"
+            content: "{{ csv_header }}\n"
+          when: inventory_hostname == groups['cisco_switches'][0]
 
-    ###
-    # Demonstrate variables
-    #
-    - name: Display some facts
-      debug:
-        msg: "The hostname is {{ ansible_net_hostname }} and the OS is {{ ansible_net_version }}"
+        - name: Append switch info to CSV
+          lineinfile:
+            path: "{{ output_file }}"
+            line: "{{ switch_data.hostname }},{{ switch_data.serial }},{{ switch_data.version }},{{ switch_data.interfaces }}"
+            create: yes
+            insertafter: EOF
 
-    - name: Facts from a specific host
-      debug:
-        var: hostvars['vyos01.example.net']
-
-    - name: Write facts to disk using a template
-      copy:
-        content: |
-          #jinja2: lstrip_blocks: True
-          EOS device info:
-            {% for host in groups['eos'] %}
-            Hostname: {{ hostvars[host].ansible_net_hostname }}
-            Version: {{ hostvars[host].ansible_net_version }}
-            Model: {{ hostvars[host].ansible_net_model }}
-            Serial: {{ hostvars[host].ansible_net_serialnum }}
-            {% endfor %}
-
-          IOS device info:
-            {% for host in groups['ios'] %}
-            Hostname: {{ hostvars[host].ansible_net_hostname }}
-            Version: {{ hostvars[host].ansible_net_version }}
-            Model: {{ hostvars[host].ansible_net_model }}
-            Serial: {{ hostvars[host].ansible_net_serialnum }}
-            {% endfor %}
-
-          VyOS device info:
-            {% for host in groups['vyos'] %}
-            Hostname: {{ hostvars[host].ansible_net_hostname }}
-            Version: {{ hostvars[host].ansible_net_version }}
-            Model: {{ hostvars[host].ansible_net_model }}
-            Serial: {{ hostvars[host].ansible_net_serialnum }}
-            {% endfor %}
-        dest: /tmp/switch-facts
-      run_once: yes
-
-    ###
-    # Get running configuration
-    #
-
-    - name: Backup switch (eos)
-      arista.eos.eos_config:
-        backup: yes
-      register: backup_eos_location
-      when: ansible_network_os == 'arista.eos.eos'
-
-    - name: backup switch (vyos)
-      vyos.vyos.vyos_config:
-        backup: yes
-      register: backup_vyos_location
-      when: ansible_network_os == 'vyos.vyos.vyos'
-
-    - name: Create backup dir
-      file:
-        path: "/tmp/backups/{{ inventory_hostname }}"
-        state: directory
-        recurse: yes
-
-    - name: Copy backup files into /tmp/backups/ (eos)
-      copy:
-        src: "{{ backup_eos_location.backup_path }}"
-        dest: "/tmp/backups/{{ inventory_hostname }}/{{ inventory_hostname }}.bck"
-      when: ansible_network_os == 'arista.eos.eos'
-
-    - name: Copy backup files into /tmp/backups/ (vyos)
-      copy:
-        src: "{{ backup_vyos_location.backup_path }}"
-        dest: "/tmp/backups/{{ inventory_hostname }}/{{ inventory_hostname }}.bck"
-      when: ansible_network_os == 'vyos.vyos.vyos'
