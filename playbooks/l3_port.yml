@@ -9,7 +9,7 @@
       set_fact:
         interface_config:
           - "interface {{ interface_name }}"
-          - "ip address {{ ip_address }}"
+          - "ip address {{ ip_address | default(omit) }}"
           - "{% if enable_port == 'yes' %}no shutdown{% else %}shutdown{% endif %}"
 
     - name: Apply L3 interface config
