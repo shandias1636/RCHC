@@ -1,24 +1,31 @@
-- name: Ensure backup_configs directory exists
-  file:
-    path: "backup_configs"
-    state: directory
-    mode: '0755'
-  delegate_to: localhost
+---
+- name: Backup Cisco Switch Configs
+  hosts: cisco_switches
+  gather_facts: no
 
-- name: Get switch hostname
-  cisco.ios.ios_facts:
+  tasks:
 
-- name: Save current datetime
-  set_fact:
-    current_datetime: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
+    - name: Set current datetime
+      ansible.builtin.set_fact:
+        current_datetime: "{{ lookup('pipe', 'date +%Y%m%d_%H%M%S') }}"
 
-- name: Run 'show running-config'
-  cisco.ios.ios_command:
-    commands: show running-config
-  register: config_output
+    - name: Get switch hostname
+      cisco.ios.ios_facts:
 
-- name: Save config to local file
-  copy:
-    content: "{{ config_output.stdout[0] }}"
-    dest: "backup_configs/{{ current_datetime }}_{{ ansible_net_hostname }}.txt"
-  delegate_to: localhost
+    - name: Run 'show running-config'
+      cisco.ios.ios_command:
+        commands: show running-config
+      register: config_output
+
+    - name: Ensure backup_configs directory exists on localhost
+      ansible.builtin.file:
+        path: "backup_configs"
+        state: directory
+        mode: '0755'
+      delegate_to: localhost
+
+    - name: Save config to local file
+      ansible.builtin.copy:
+        content: "{{ config_output.stdout[0] }}"
+        dest: "backup_configs/{{ current_datetime }}_{{ ansible_net_hostname }}.txt"
+      delegate_to: localhost
