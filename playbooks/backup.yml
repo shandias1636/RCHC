@@ -1,6 +1,6 @@
 ---
 - name: Backup Cisco Switch Configs
-  hosts: cisco_switches
+  hosts: network
   gather_facts: no
 
   tasks:
