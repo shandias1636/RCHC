@@ -27,5 +27,5 @@
     - name: Save config to local file
       ansible.builtin.copy:
         content: "{{ config_output.stdout[0] }}"
-        dest: "backup_configs/{{ ansible_net_hostname }}.txt"
+        dest: "backup_configs {{ ansible_net_hostname }}.txt"
       delegate_to: localhost
