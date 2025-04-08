@@ -1,4 +1,3 @@
----
 - name: Ensure backup_configs directory exists
   file:
     path: "backup_configs"
