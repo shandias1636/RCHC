@@ -1,6 +1,6 @@
 ---
 - name: Gather facts from Cisco switches and export to CSV
-  hosts: cisco_switches
+  hosts: network
   gather_facts: no
   connection: network_cli
   collections:
