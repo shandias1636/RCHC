@@ -1,6 +1,6 @@
 ---
 - name: CLI command playbook
-  hosts: all
+  hosts: network
   gather_facts: false
   vars:
     ansible_connection: network_cli
